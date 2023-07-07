@@ -1,13 +1,11 @@
-mod args;
-mod scanner;
+mod core;
 
-use args::Args;
 use clap::Parser;
 
 fn main() {
-    let args = Args::parse();
+    let args = core::args::Args::parse();
 
-    let s = scanner::IpScanner::new(args.ip_address, args.threads);
+    let s = core::scanner::IpScanner::new(args.ip_address, args.threads);
 
     match s {
         Some(scan) => {

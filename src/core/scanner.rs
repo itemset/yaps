@@ -1,7 +1,8 @@
+use crate::core::display;
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::str::FromStr;
 use std::sync::mpsc::{channel, Sender};
-use std::thread;
+use std::thread::{self, JoinHandle};
 
 pub struct IpScanner {
     ip_address: IpAddr,
@@ -23,10 +24,28 @@ impl IpScanner {
     }
 
     pub fn scan(&self) {
-        println!("Scanning {} on {} threads", self.ip_address, self.threads);
-        let port_ranges = self.generate_port_ranges();
+        display::log(
+            &format!("Scanning {} on {} threads", self.ip_address, self.threads),
+            display::DisplayModes::INFO,
+        );
 
-        // logic
+        let port_ranges = self.generate_port_ranges();
+        let (tx, rx) = channel::<u16>();
+        let mut handles: Vec<JoinHandle<()>> = Vec::new();
+
+        for range in port_ranges {
+            let tx = tx.clone();
+            let ip_address = self.ip_address.clone();
+
+            let handle = thread::spawn(move || IpScanner::scan_range(ip_address, range, tx));
+            handles.push(handle);
+        }
+
+        drop(tx);
+        let _ = handles.into_iter().map(|handle| handle.join().unwrap());
+        let ports: Vec<u16> = rx.into_iter().collect();
+
+        display::pretty_print_ports(self.ip_address, ports);
     }
 
     fn generate_port_ranges(&self) -> Vec<(u16, u16)> {
@@ -47,22 +66,25 @@ impl IpScanner {
         port_ranges
     }
 
-    fn scan_range(&self, tx: Sender<u16>, range: (u16, u16)) {
+    fn scan_range(ip_address: IpAddr, range: (u16, u16), transmitter: Sender<u16>) {
         let (start_port, end_port) = range;
         for port in start_port..=end_port {
-            if self.scan_port(port) {
-                println!("Port {} is open", port);
+            let message = if IpScanner::scan_port(ip_address, port) {
+                transmitter.send(port).unwrap();
+                let message = format!("Port {} is open", port);
+                message
+            } else {
+                let message = format!("Port {} is not open", port);
+                message
+            };
 
-                continue;
-            }
-
-            println!("Port {} is not open", port);
+            display::log(message.as_str(), display::DisplayModes::DEBUG);
         }
     }
 
-    fn scan_port(&self, port: u16) -> bool {
+    fn scan_port(ip_address: IpAddr, port: u16) -> bool {
         match TcpStream::connect_timeout(
-            &SocketAddr::new(self.ip_address, port),
+            &SocketAddr::new(ip_address, port),
             std::time::Duration::from_secs(1),
         ) {
             Ok(_) => true,
