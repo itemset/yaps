@@ -21,7 +21,9 @@ fn main() {
             |_  |_|__,|_|  _|_|___|
             |___|       |_|
                             yet another port sniffer
-            "#
+{}
+            "#,
+                "=".repeat(60)
             );
             scan.scan();
         }
