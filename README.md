@@ -1,7 +1,7 @@
 # y.a.p.s
 
 > **Warning**
-> POC (Proof-of-Concept) program,
+> POC (Proof-of-Concept) program, do NOT use this in a professional environment.
 
 Yet another port sniffing tool written in rust.
 
