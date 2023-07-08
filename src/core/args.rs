@@ -11,4 +11,7 @@ pub struct Args {
     /// Number of threads to scan a given IP address on
     #[arg(short, long, default_value_t = 1)]
     pub threads: u16,
+
+    #[arg(long, short, action)]
+    pub verbose: bool,
 }

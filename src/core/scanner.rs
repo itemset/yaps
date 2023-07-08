@@ -4,19 +4,25 @@ use std::str::FromStr;
 use std::sync::mpsc::{channel, Sender};
 use std::thread::{self, JoinHandle};
 
+pub struct Config {
+    pub verbose: bool,
+}
+
 pub struct IpScanner {
     ip_address: IpAddr,
     threads: u16,
+    config: Config,
 }
 
 impl IpScanner {
     const MAX_PORT: u16 = u16::MAX; // 65,535
 
-    pub fn new(address: String, threads: u16) -> Option<IpScanner> {
+    pub fn new(address: String, threads: u16, config: Config) -> Option<IpScanner> {
         if let Ok(ip_address) = IpAddr::from_str(&address) {
             return Some(IpScanner {
                 ip_address,
                 threads,
+                config,
             });
         }
 
@@ -36,8 +42,10 @@ impl IpScanner {
         for range in port_ranges {
             let tx = tx.clone();
             let ip_address = self.ip_address.clone();
+            let is_verbose = self.config.verbose.clone();
 
-            let handle = thread::spawn(move || IpScanner::scan_range(ip_address, range, tx));
+            let handle =
+                thread::spawn(move || IpScanner::scan_range(ip_address, range, tx, is_verbose));
             handles.push(handle);
         }
 
@@ -66,7 +74,12 @@ impl IpScanner {
         port_ranges
     }
 
-    fn scan_range(ip_address: IpAddr, range: (u16, u16), transmitter: Sender<u16>) {
+    fn scan_range(
+        ip_address: IpAddr,
+        range: (u16, u16),
+        transmitter: Sender<u16>,
+        is_verbose: bool,
+    ) {
         let (start_port, end_port) = range;
         for port in start_port..=end_port {
             let message = if IpScanner::scan_port(ip_address, port) {
@@ -77,6 +90,9 @@ impl IpScanner {
                 let message = format!("Port {} is not open", port);
                 message
             };
+            if !is_verbose {
+                continue;
+            }
 
             display::log(message.as_str(), display::DisplayModes::DEBUG);
         }
